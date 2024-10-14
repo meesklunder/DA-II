@@ -12,6 +12,11 @@ library(tidyverse)
 library(lubridate) #run install
 
 ```
+Beschrijving Dataset:
+De dataset die we in deze opdracht gebruiken zijn gegevens van de kraamzorg van de afgelopen 15 jaar van voornamelijk noord- en zuid-holland, utrecht en gelderland. Hierin staan gegevens over wat de uitgerekende bevallingsdatum was, de daadwerkelijke bevallingsdatum, in welke regio van Nederland de bevalling plaatsvond, of dit thuis of in het ziekenhuis was (en welk ziekenhuis), het hoeveelste kindje er geboren zou worden, hoeveel kindjes er geboren worden etc. We zullen na het importeren de lege vakjes aanvullen met "NA". Omdat bepaalde cliënten de zorg hebben geannuleerd voordat ze bevallen zijn, filteren we de colommen zonder bevallingsdatum er uit. 
+
+De vragen voor deze opdracht die wij willen beantwoorden zijn:
+
 
 #data import
 ```{r}
