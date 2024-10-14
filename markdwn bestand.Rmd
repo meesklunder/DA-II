@@ -1,0 +1,52 @@
+---
+title: "script/markdown assignment 2"
+author: "Floris Meijvis en co"
+date: "2024-10-14"
+output: html_document
+---
+##Assignment 2
+
+#benodigde packages
+```{r}
+library(tidyverse)
+library(lubridate) #run install
+
+```
+
+#data import
+```{r}
+Data = read.csv("Data.csv", sep = ";", fill = TRUE) %>%
+  rename(Aantal_Kinderen = Aantal..kinderen, 
+         Medische_Indicatie = Medische.indicatie,
+         Code_Ziekenhuis = Code_ziekenhuis,
+         Medische_Indicatie_Bevalling = Medische.indicatie_Bevalling,
+         Datum_Verwachte_Bevalling = Datum.verwachte.bevalling,
+         Datum_Bevalling = Datum.bevalling,
+         Tijdstip_Bevalling = Tijdstip.bevalling,
+         Aantal_Kinderen_Verwacht = Aantal.kinderen.verwacht,
+         Voeding_Verwacht = Voeding.verwacht,
+         Tijdstip_Geboorte_Placenta = Tijdstip.geboorte.placenta,
+         Datum_Geboorte_Placenta = Datum.geboorte.placenta,
+         Geboortedatum_Moeder = Geboortedatum,
+         Code_Plaats_Bevalling = Code_PlaatsBevalling) %>%
+  mutate(Werkeenheid = as.factor(Werkeenheid),
+         Code_Werkeenheid = as.factor(Code_Werkeenheid),
+         Code_Ziekenhuis = as.factor(Code_Ziekenhuis),
+         Medische_Indicatie = as.factor(Medische_Indicatie),
+         Medische_Indicatie_Bevalling = as.factor(Medische_Indicatie_Bevalling),
+         Sectio = as.factor(Sectio),
+         Code_Plaats_Bevalling = as.factor(Code_Plaats_Bevalling),
+         Delta_AT = as.numeric(dmy(Datum_Bevalling) - dmy(Datum_Verwachte_Bevalling))   #verschil tussen uitgerekende en daadwerkelijke bevallingsdatum in dagen (negatief = eerder bevallen dan)
+         ) %>%
+  subset(select = -Geslacht)
+
+Data[Data == ""] = NA
+Data = filter(Data, !is.na(Data$Datum_Bevalling))
+```
+
+Hieronder staat een testomgeving
+
+```{r}
+Data$Code_Ziekenhuis == "" 
+Data == ""
+```
