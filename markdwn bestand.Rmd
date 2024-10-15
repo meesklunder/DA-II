@@ -4,54 +4,112 @@ author: "Floris Meijvis en co"
 date: "2024-10-14"
 output: html_document
 ---
-##Assignment 2
+# Assignment 2
 
-#benodigde packages
+# Setting environment
 ```{r}
+# lead packages
 library(tidyverse)
-library(lubridate) #run install
+library(lubridate)
+library(class)
+
+# set seed for reproducibility
+set.seed(45)
 
 ```
-Beschrijving Dataset:
-De dataset die we in deze opdracht gebruiken zijn gegevens van de kraamzorg van de afgelopen 15 jaar van voornamelijk noord- en zuid-holland, utrecht en gelderland. Hierin staan gegevens over wat de uitgerekende bevallingsdatum was, de daadwerkelijke bevallingsdatum, in welke regio van Nederland de bevalling plaatsvond, of dit thuis of in het ziekenhuis was (en welk ziekenhuis), het hoeveelste kindje er geboren zou worden, hoeveel kindjes er geboren worden etc. We zullen na het importeren de lege vakjes aanvullen met "NA". Omdat bepaalde cliënten de zorg hebben geannuleerd voordat ze bevallen zijn, filteren we de colommen zonder bevallingsdatum er uit. 
+## Description of the dataset:
 
-De vragen voor deze opdracht die wij willen beantwoorden zijn:
+The dataset we'll be using for this second assignment contains information about maternity care from the last 15 jears, mainly from the regions North- and South-Holland, Utrecht and Gelderland. There's information about the expected and actyual deliviry date, where this happened, how many previous children have been born before, how many children will be born, etc. Some clients didn't complete their pregnancy with this specific caretaker, resulting in empty cells. 
+
+Interesting questions to answer with a model on this dataset would be:
+
+* can we predict if a childbirth will be medical or not?
+* (maybe) can we predict when delivery will happen?
 
 
-#data import
+## data import
 ```{r}
 Data = read.csv("Data.csv", sep = ";", fill = TRUE) %>%
-  rename(Aantal_Kinderen = Aantal..kinderen, 
-         Medische_Indicatie = Medische.indicatie,
-         Code_Ziekenhuis = Code_ziekenhuis,
-         Medische_Indicatie_Bevalling = Medische.indicatie_Bevalling,
-         Datum_Verwachte_Bevalling = Datum.verwachte.bevalling,
-         Datum_Bevalling = Datum.bevalling,
-         Tijdstip_Bevalling = Tijdstip.bevalling,
-         Aantal_Kinderen_Verwacht = Aantal.kinderen.verwacht,
-         Voeding_Verwacht = Voeding.verwacht,
-         Tijdstip_Geboorte_Placenta = Tijdstip.geboorte.placenta,
-         Datum_Geboorte_Placenta = Datum.geboorte.placenta,
-         Geboortedatum_Moeder = Geboortedatum,
-         Code_Plaats_Bevalling = Code_PlaatsBevalling) %>%
-  mutate(Werkeenheid = as.factor(Werkeenheid),
-         Code_Werkeenheid = as.factor(Code_Werkeenheid),
-         Code_Ziekenhuis = as.factor(Code_Ziekenhuis),
-         Medische_Indicatie = as.factor(Medische_Indicatie),
-         Medische_Indicatie_Bevalling = as.factor(Medische_Indicatie_Bevalling),
-         Sectio = as.factor(Sectio),
-         Code_Plaats_Bevalling = as.factor(Code_Plaats_Bevalling),
-         Delta_AT = as.numeric(dmy(Datum_Bevalling) - dmy(Datum_Verwachte_Bevalling))   #verschil tussen uitgerekende en daadwerkelijke bevallingsdatum in dagen (negatief = eerder bevallen dan)
-         ) %>%
-  subset(select = -Geslacht)
+  rename(Nr_Children = Aantal..kinderen, 
+         Medical_Indication = Medische.indicatie,
+         Hospital_code = Code_ziekenhuis,
+         Medical_Indication_Birth = Medische.indicatie_Bevalling,
+         Date_Expected_Birth = Datum.verwachte.bevalling,
+         Date_Birth = Datum.bevalling,
+         Time_Birth = Tijdstip.bevalling,
+         Nr_Children_Expected = Aantal.kinderen.verwacht,
+         Expected_Feeding = Voeding.verwacht,
+         Time_Birth_Placenta = Tijdstip.geboorte.placenta,
+         Date_Birth_Placenta = Datum.geboorte.placenta,
+         Birthday_Parent = Geboortedatum,
+         Work_Unit = Werkeenheid,
+         Code_Work_Unit = Code_Werkeenheid,
+         C_Section = Sectio,
+         Gender_Parent = Geslacht,
+         Code_Birth_Place = Code_PlaatsBevalling) %>%
+  mutate(Work_Unit = as.factor(Work_Unit),
+         Code_Work_Unit = as.factor(Code_Work_Unit),
+         Hospital_code = as.factor(Hospital_code),
+         Medical_Indication = as.factor(Medical_Indication),
+         Medical_Indication_Birth = as.factor(Medical_Indication_Birth),
+         C_Section = as.factor(C_Section),
+         Code_Birth_Place = as.factor(Code_Birth_Place),
+         Expected_Feeding = as.factor(Expected_Feeding),
+         Gender_Parent = as.factor(Gender_Parent),
+         Delta_AT = as.numeric(dmy(Date_Birth) - dmy(Date_Expected_Birth)),   #verschil tussen uitgerekende en daadwerkelijke bevallingsdatum in dagen (negatief = eerder bevallen dan)
+         Gender_parent = recode(Gender_Parent, V="F", M="M", O="N")
+         ) 
 
 Data[Data == ""] = NA
-Data = filter(Data, !is.na(Data$Datum_Bevalling))
+Data = filter(Data, !is.na(Data$Date_Birth))
 ```
 
-Hieronder staat een testomgeving
 
 ```{r}
-Data$Code_Ziekenhuis == "" 
-Data == ""
+head(Data)
+```
+
+## Description of all collumns:
+
+* __Work_Unit__: region
+* __Code_Work_Unit__: region code
+* __Date_Expected_Birth__: planned birth day (day-month-year)
+* __Date_Birth__: real birth day (day-month-year)
+* __Time_Birth__: moment of birth (hour:minute:second)
+* __Nr_Children__: Amount of children previously birthed by client
+* __Medical_Indication__: If previously thought to birth in hospital
+* __Hospital_code__: Hospital code (_NA_ if birthed at home)
+* __Medical_Indication_Birth__: If birth was on hospital
+* __C_Section__: If the child was birthed using a C-section
+* __Nr_Children_Expected__: How many children are expected to be born
+* __Expected_Feeding__: What kind of feeding the parent is planning to give (1 = breast, ??)
+* __Date_Birth_Placenta__: Date of placenta birth (day-month-year, empty if unknown) 
+* __Time_Birth_Placenta__: Time of the placenta birth (hour:minute:second, empyt if unknown)
+* __Birthday_Parent__: Birth day of the parent (day-month-year)
+* __Gender_Parent__: Gender of the parent (F = female, M = male, N = neutral)
+* __Code_Birth_Place__: Where the birth took place (Z = hospital, H = at home)
+* __Delta_AT__: difference between expected and real birth day (negtaive number = earlier then expected)
+
+## Investigating the data
+```{r}
+table(Data$Gender)
+Data[Data$Gender != "F",]
+```
+
+It's interesting to see that there are genders that are not female.
+
+```{r}
+summary(Data)
+```
+
+It looks like there are people who had more than a year's difference in Delta_AT... something is not right there. All other categories look like they make sense though. 
+
+## Divide into test and training set
+```{r}
+# there are 194093 rows, so 20% vs 80% divide for test and training sets
+data_dummy <- Data %>% 
+  mutate(div = sample(c(rep("train", 155274), rep("test", 38819))))
+
+data_train <- filter(data_dummy, div=="train") %>% select(-div)
+data_test <- filter(data_dummy, div=="test") %>% select(-div)
 ```
