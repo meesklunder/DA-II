@@ -12,6 +12,8 @@ output: html_document
 library(tidyverse)
 library(lubridate)
 library(class)
+library(rpart)
+library(rpart.plot)
 
 # set seed for reproducibility
 set.seed(45)
@@ -57,7 +59,8 @@ Data = read.csv("Data.csv", sep = ";", fill = TRUE) %>%
          Expected_Feeding = as.factor(Expected_Feeding),
          Gender_Parent = as.factor(Gender_Parent),
          Delta_AT = as.numeric(dmy(Date_Birth) - dmy(Date_Expected_Birth)),   #verschil tussen uitgerekende en daadwerkelijke bevallingsdatum in dagen (negatief = eerder bevallen dan)
-         Gender_parent = recode(Gender_Parent, V="F", M="M", O="N")
+         Age_Parent = as.integer((dmy(Date_Birth) - dmy(Birthday_Parent))/365)
+         #Gender_parent = recode(Gender_Parent, V="F", M="M", O="N")
          ) 
 
 Data[Data == ""] = NA
@@ -79,7 +82,7 @@ head(Data)
 * __Nr_Children__: Amount of children previously birthed by client
 * __Medical_Indication__: If previously thought to birth in hospital
 * __Hospital_code__: Hospital code (_NA_ if birthed at home)
-* __Medical_Indication_Birth__: If birth was on hospital
+* __Medical_Indication_Birth__: If birth was in hospital
 * __C_Section__: If the child was birthed using a C-section
 * __Nr_Children_Expected__: How many children are expected to be born
 * __Expected_Feeding__: What kind of feeding the parent is planning to give (1 = breast, ??)
@@ -92,8 +95,8 @@ head(Data)
 
 ## Investigating the data
 ```{r}
-table(Data$Gender)
-Data[Data$Gender != "F",]
+table(Data$Gender_Parent)
+Data[Data$Gender_Parent != "V",]
 ```
 
 It's interesting to see that there are genders that are not female.
@@ -112,4 +115,21 @@ data_dummy <- Data %>%
 
 data_train <- filter(data_dummy, div=="train") %>% select(-div)
 data_test <- filter(data_dummy, div=="test") %>% select(-div)
+
+head(data_train)
 ```
+
+
+## Classification tree
+
+As a simple model, and to see what variables have an effect on whether the birth will be medical or not, make a decision tree with all information that can be known before birth. 
+```{r}
+tree <- rpart(Medical_Indication_Birth ~ Work_Unit + Nr_Children + Medical_Indication + Nr_Children_Expected + Gender_Parent + Age_Parent, data = data_train)
+rpart.plot(tree)
+```
+
+It looks like these three variables have some effect. Strange is that not all previously planned medical births are actually medical in the end. It also looks like having had a previous child make the change of a medical birth lower. Lastly, it might be interesting to see why this specific work-force shows up as having a negative effect on having a medical birth.
+
+
+
+
