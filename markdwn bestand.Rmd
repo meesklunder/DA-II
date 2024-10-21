@@ -21,7 +21,7 @@ set.seed(45)
 ```
 ## Description of the dataset:
 
-The dataset we'll be using for this second assignment contains information about maternity care from the last 15 jears, mainly from the regions North- and South-Holland, Utrecht and Gelderland. There's information about the expected and actyual deliviry date, where this happened, how many previous children have been born before, how many children will be born, etc. Some clients didn't complete their pregnancy with this specific caretaker, resulting in empty cells. 
+The dataset we'll be using for this second assignment contains information about maternity care from the last 15 jears, mainly from the regions North- and South-Holland, Utrecht and Gelderland. There's information about the expected and actual deliviry date, where this happened, how many previous children the parents have, how many children will be born, etc. Some clients didn't complete their pregnancy with this specific caretaker, resulting in empty cells. 
 
 Interesting questions to answer with a model on this dataset would be:
 
@@ -63,8 +63,10 @@ Data = read.csv("Data.csv", sep = ";", fill = TRUE) %>%
          #Gender_parent = recode(Gender_Parent, V="F", M="M", O="N")
          ) 
 
+#filtering out errors (such as having 2008 children)
 Data[Data == ""] = NA
-Data = filter(Data, !is.na(Data$Date_Birth))
+Data = filter(Data, !is.na(Data$Date_Birth)) %>%
+  filter(Nr_Children < 16)
 ```
 
 
@@ -80,18 +82,18 @@ head(Data)
 * __Date_Birth__: real birth day (day-month-year)
 * __Time_Birth__: moment of birth (hour:minute:second)
 * __Nr_Children__: Amount of children previously birthed by client
-* __Medical_Indication__: If previously thought to birth in hospital
+* __Medical_Indication__: If birth is advised to be in the hospital
 * __Hospital_code__: Hospital code (_NA_ if birthed at home)
 * __Medical_Indication_Birth__: If birth was in hospital
 * __C_Section__: If the child was birthed using a C-section
 * __Nr_Children_Expected__: How many children are expected to be born
 * __Expected_Feeding__: What kind of feeding the parent is planning to give (1 = breast, ??)
 * __Date_Birth_Placenta__: Date of placenta birth (day-month-year, empty if unknown) 
-* __Time_Birth_Placenta__: Time of the placenta birth (hour:minute:second, empyt if unknown)
+* __Time_Birth_Placenta__: Time of the placenta birth (hour:minute:second, empyt if unknown) Entries are empty if the maternity care company did not assist at childbirth
 * __Birthday_Parent__: Birth day of the parent (day-month-year)
 * __Gender_Parent__: Gender of the parent (F = female, M = male, N = neutral)
-* __Code_Birth_Place__: Where the birth took place (Z = hospital, H = at home)
-* __Delta_AT__: difference between expected and real birth day (negtaive number = earlier then expected)
+* __Code_Birth_Place__: Where the birth took place (Z = hospital, T = at home)
+* __Delta_AT__: difference between expected and real birth day (negative number = earlier then expected)
 
 ## Investigating the data
 ```{r}
@@ -109,14 +111,18 @@ It looks like there are people who had more than a year's difference in Delta_AT
 
 ## Divide into test and training set
 ```{r}
-# there are 194093 rows, so 20% vs 80% divide for test and training sets
-data_dummy <- Data %>% 
-  mutate(div = sample(c(rep("train", 155274), rep("test", 38819))))
+# We set up our split in such a way that cross validation can be done by changing what split we use for test data
+sort_vector = rep(1:5, length.out = nrow(Data)) %>%
+  sample()
 
-data_train <- filter(data_dummy, div=="train") %>% select(-div)
-data_test <- filter(data_dummy, div=="test") %>% select(-div)
+Data = mutate(Data, split = sort_vector)
+Data_train = Data %>%
+  filter(split != 1)
 
-head(data_train)
+Data_test = Data %>%
+  filter(split == 1)
+
+head(Data_train)
 ```
 
 
@@ -124,12 +130,57 @@ head(data_train)
 
 As a simple model, and to see what variables have an effect on whether the birth will be medical or not, make a decision tree with all information that can be known before birth. 
 ```{r}
-tree <- rpart(Medical_Indication_Birth ~ Work_Unit + Nr_Children + Medical_Indication + Nr_Children_Expected + Gender_Parent + Age_Parent, data = data_train)
+tree <- rpart(Medical_Indication_Birth ~ Work_Unit + Nr_Children + Medical_Indication + Nr_Children_Expected + Gender_Parent + Age_Parent, data = Data_train)
 rpart.plot(tree)
 ```
 
-It looks like these three variables have some effect. Strange is that not all previously planned medical births are actually medical in the end. It also looks like having had a previous child make the change of a medical birth lower. Lastly, it might be interesting to see why this specific work-force shows up as having a negative effect on having a medical birth.
+It looks like the most important variables are medical_indication and n_r of children. Strange is that not all previously planned medical births are actually medical in the end. It also looks like having had a previous child make the change of a medical birth lower. Lastly, it might be interesting to see why this specific work-force shows up as having a negative effect on having a medical birth.
 
+We will make a few plots to visualise these effects:
+
+```{r}
+Data %>%
+  filter(Nr_Children < 8) %>%
+    ggplot() + 
+    geom_bar(aes(x = Nr_Children, fill = Medical_Indication_Birth))
+
+Data %>%
+  filter(Nr_Children < 8) %>%   #this line is to make sure we dont get 30 plots
+  ggplot + 
+  geom_bar(aes(x = Medical_Indication_Birth, fill = Medical_Indication_Birth)) + 
+  facet_wrap(vars(Nr_Children), scales = 'free')
+```
+
+```{r}
+x = c(0:8)
+Total = c()
+for (i in x){
+  Data %>%
+    filter(Nr_Children == i) %>%
+    nrow() -> N
+  Total = c(Total,N)
+  }
+
+Total_medic = c()
+  for (i in 0:8){
+  Data%>%
+    filter(Nr_Children == i) %>%
+      filter(Medical_Indication_Birth == 'True') %>%
+      nrow() -> N
+      Total_medic = c(Total_medic,N)
+  }
+fraction = Total_medic/Total
+
+plot_fraction_medical = data.frame(x,fraction) %>%
+  ggplot + 
+  geom_point(aes(x,fraction)) + 
+  labs(title = "fractions of Hospital births vs number of previous children") + 
+  xlab('Number of children') + 
+  ylab('Fraction')
+
+plot_fraction_medical
+```
+What we see is that we get a steep drop after the first couple births, but afterwards the fraction of hospital births rises again. The plot above serves as a general trendline. Keep in mind that we have much less data entries for higher amounts of children, meaning that the drop at x = 8 iis most likely due to random noise.
 
 
 
